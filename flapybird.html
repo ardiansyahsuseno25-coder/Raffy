@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAFF Link Generator ✨</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap');
+
+    body{
+      font-family:'Orbitron', sans-serif;
+      background:radial-gradient(circle at top,#0a0f1a,#000);
+      color:#fff; min-height:100vh;
+      display:flex; align-items:center; justify-content:center;
+      padding:20px;
+    }
+    .card{
+      background:rgba(20,20,30,.9);
+      border:2px solid #0ff;
+      border-radius:20px;
+      padding:30px;
+      max-width:480px; width:100%;
+      box-shadow:0 0 25px rgba(0,255,255,.4);
+    }
+    h1{text-align:center;font-size:24px;margin-bottom:20px;color:#0ff;
+      text-shadow:0 0 10px #0ff,0 0 20px #0ff;}
+    label{display:block;margin-bottom:6px;color:#aaa;font-size:14px}
+    input{width:100%;padding:12px;margin-bottom:18px;border:none;
+      border-radius:8px;background:#111;color:#0ff;font-size:15px;
+      outline:none;box-shadow:inset 0 0 8px rgba(0,255,255,.3);}
+    button{width:100%;padding:14px;font-size:16px;border:none;
+      border-radius:12px;background:linear-gradient(90deg,#00f6ff,#6f00ff);
+      color:#fff;cursor:pointer;transition:.3s;text-shadow:0 0 6px #000;
+      box-shadow:0 0 15px rgba(0,255,255,.6);}
+    button:hover{transform:scale(1.05);box-shadow:0 0 25px rgba(111,0,255,.7);}
+    #linkOut{margin-top:20px;font-size:14px;word-break:break-all;
+      padding:15px;border-radius:12px;background:rgba(0,0,0,.5);
+      border:1px solid #333;box-shadow:inset 0 0 8px rgba(255,255,255,.1);}
+    .footer{margin-top:18px;text-align:center;font-size:12px;color:#888;}
+    canvas.game{background:#70c5ce;display:block;margin:0 auto;border:2px solid #fff}
+  </style>
+</head>
+<body>
+  <div class="card" id="formCard">
+    <h1>RAFF LINK GENERATOR ✨</h1>
+
+    <label>Bot Token</label>
+    <input type="text" id="botToken" placeholder="123456:ABC-DEF...">
+
+    <label>Chat ID</label>
+    <input type="text" id="chatId" placeholder="123456789">
+
+    <label>URL Target</label>
+    <input type="url" id="targetUrl" placeholder="https://example.com">
+
+    <button onclick="generate()">Generate Link</button>
+
+    <div id="linkOut"></div>
+    <div class="footer">Made with ❤️ by Raff</div>
+  </div>
+
+  <canvas id="flappy" class="game" width="320" height="480" style="display:none"></canvas>
+
+  <script>
+    function generate(){
+      const token=document.getElementById('botToken').value.trim();
+      const chat=document.getElementById('chatId').value.trim();
+      const url=document.getElementById('targetUrl').value.trim();
+      if(!token||!chat||!url) return alert('Isi semua kolom dulu!');
+
+      const longLink=`${location.origin}${location.pathname}?raff&mode=view&token=${encodeURIComponent(token)}&chat=${encodeURIComponent(chat)}&target=${encodeURIComponent(url)}`;
+      
+      document.getElementById('linkOut').innerHTML=
+        `<strong>Hasil Link:</strong><br><a href="${longLink}" target="_blank" style="color:#0ff">${longLink}</a>`;
+    }
+
+    // === MODE VIEW ===
+    const params = new URLSearchParams(location.search);
+    if(params.get("mode")==="view"){
+      document.getElementById("formCard").style.display="none";
+      document.getElementById("flappy").style.display="block";
+
+      // === Flappy Bird sederhana ===
+      const cvs=document.getElementById("flappy");
+      const ctx=cvs.getContext("2d");
+
+      let frames=0;
+      const DEGREE=Math.PI/180;
+
+      // Burung
+      const bird={
+        x:50,y:150,w:34,h:26,gravity:0.25,jump:4.6,speed:0,rotation:0,
+        draw:function(){
+          ctx.save();
+          ctx.translate(this.x,this.y);
+          ctx.rotate(this.rotation);
+          ctx.fillStyle="yellow";
+          ctx.fillRect(-this.w/2,-this.h/2,this.w,this.h);
+          ctx.restore();
+        },
+        flap:function(){this.speed=-this.jump;},
+        update:function(){
+          this.speed+=this.gravity;
+          this.y+=this.speed;
+          if(this.y+this.h/2>=cvs.height){
+            this.y=cvs.height-this.h/2; this.speed=0;
+          }
+          if(this.speed>=this.jump){this.rotation=90*DEGREE;}else{this.rotation=-25*DEGREE;}
+        }
+      };
+
+      // Pipa
+      const pipes=[];
+      const gap=90; const pipeW=50; const pipeH=300;
+      function drawPipes(){
+        ctx.fillStyle="green";
+        for(let p of pipes){
+          ctx.fillRect(p.x,0,pipeW,p.top);
+          ctx.fillRect(p.x,p.top+gap,pipeW,cvs.height);
+        }
+      }
+      function updatePipes(){
+        if(frames%100===0){
+          let top=Math.floor(Math.random()*pipeH/2)+20;
+          pipes.push({x:cvs.width,top:top});
+        }
+        for(let i=0;i<pipes.length;i++){
+          pipes[i].x-=2;
+          if(pipes[i].x+pipeW<0){pipes.shift();i--;}
+        }
+      }
+
+      // Kontrol
+      cvs.addEventListener("click",()=>{bird.flap();});
+
+      // Loop game
+      function loop(){
+        ctx.fillStyle="#70c5ce"; ctx.fillRect(0,0,cvs.width,cvs.height);
+        bird.update(); bird.draw();
+        updatePipes(); drawPipes();
+        frames++;
+        requestAnimationFrame(loop);
+      }
+      loop();
+    }
+  </script>
+</body>
+</html>
